@@ -27,10 +27,6 @@ jobs:
         with:
           go-version: "1.24"
           cache: true
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc libsqlite3-dev gcc-aarch64-linux-gnu
       - name: Build release artefacts
         env:
           VERSION: ${{ github.ref_name }}
@@ -43,27 +39,19 @@ jobs:
           build_binary() {
             local goos=$1
             local goarch=$2
-            local cgo_enabled=$3
-            local cc=${4:-}
             local binary="openfiltr-${goos}-${goarch}"
 
-            if [ -n "$cc" ]; then
-              CC="$cc" GOOS="$goos" GOARCH="$goarch" CGO_ENABLED="$cgo_enabled" go build \
-                -ldflags="-s -w -X main.version=$VERSION -X main.commit=$COMMIT -X main.buildDate=$BUILD_DATE" \
-                -o "dist/${binary}" ./cmd/server
-            else
-              GOOS="$goos" GOARCH="$goarch" CGO_ENABLED="$cgo_enabled" go build \
-                -ldflags="-s -w -X main.version=$VERSION -X main.commit=$COMMIT -X main.buildDate=$BUILD_DATE" \
-                -o "dist/${binary}" ./cmd/server
-            fi
+            GOOS="$goos" GOARCH="$goarch" CGO_ENABLED=0 go build \
+              -ldflags="-s -w -X main.version=$VERSION -X main.commit=$COMMIT -X main.buildDate=$BUILD_DATE" \
+              -o "dist/${binary}" ./cmd/server
 
             tar -C dist -czf "dist/${binary}.tar.gz" "$binary"
           }
 
-          build_binary linux amd64 1 gcc
-          build_binary linux arm64 1 aarch64-linux-gnu-gcc
-          build_binary darwin amd64 0
-          build_binary darwin arm64 0
+          build_binary linux amd64
+          build_binary linux arm64
+          build_binary darwin amd64
+          build_binary darwin arm64
 
           (cd dist && sha256sum *.tar.gz > checksums.txt)
       - name: Log in to GHCR
